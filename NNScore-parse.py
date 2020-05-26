@@ -111,7 +111,7 @@ def main():
 					"Filename of ligand": str(Path(ligand_output).stem),
 					"NNScore": float(tmp[2]),
 					"\u00B1Deviation": float(tmp[3]),
-					"Energy": float(tmp[4][:-3]),
+					"Kd": float(tmp[4][:-3]),
 					"Unit": str(tmp[4][-2:]) 	  
 					}
 					results_list.append(ligand_dock_info)
@@ -125,7 +125,7 @@ def main():
 	results_df.sort_values(by=["NNScore"], ascending=False, inplace=True)
 
         #placing columns in desirable order
-	results_df = results_df[['Filename of ligand', 'NNScore', '\u00B1Deviation', 'Energy', 'Unit']]
+	results_df = results_df[['Filename of ligand', 'NNScore', '\u00B1Deviation', 'Kd', 'Unit']]
 	
 	# create file with results
 	content = tabulate(results_df.values.tolist(), list(results_df.columns), tablefmt="plain")
