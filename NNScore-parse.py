@@ -22,6 +22,7 @@ import sys
 import argparse
 import glob
 import subprocess
+import shutil
 import pandas as pd
 import numpy as np
 
@@ -45,10 +46,14 @@ def createParser():
     	help='''path to separate directory with ligands in PDBQT format''')
 	parser.add_argument('--vina_executable', required=True,
     	help='''path to vina executable file''')
+	parser.add_argument('--num_to_filter', required=True,
+    	help='''number of compounds to take in final set''')
 	parser.add_argument('--nn2_script',
     	help='''path to NNScore2 script file''')
 	parser.add_argument('--results_file',
     	help='''path to file with results of NNScore work''')
+	parser.add_argument('--best_output_dir',
+		help='''path to directory with best results in PDBQT format''')
 	return parser
 
 
@@ -70,29 +75,38 @@ def main():
 	else:
 		nn2_script_file = enter.nn2_script
 	
-	#check, whether output_dir path defined: if so, set user-defined path, otherwise set directory 'output' in a local directory
+	#check, whether results_file path defined: if so, set user-defined path, otherwise set results_file 'results.txt' in a local directory
 	if not enter.results_file:
-		results_text_file = str(script_dir / 'results.txt') 
+		results_text_file = str(script_dir / 'NNScore_results.txt') 
 	else:
 		results_text_file = enter.results_file
 	
-	#make temporary directory
-	temp_dir = str(script_dir / 'temp') + os.sep
-	if not os.path.exists(temp_dir):
-		os.mkdir(temp_dir)
+	#check, whether best_output_dir path defined: if so, set user-defined path, otherwise set directory 'NNScore_best_N' in a local directory
+	if not enter.best_output_dir:
+		best_output_directory = str(script_dir) + os.sep + 'NNScore_top-' + str(enter.num_to_filter) + os.sep
 	else:
-		for file in glob.glob(temp_dir + "*.*"):
-			os.remove(file)
+		best_output_directory = enter.best_output_dir
+
+	if os.path.exists(best_output_directory):
+		shutil.rmtree(best_output_directory)
+	os.mkdir(best_output_directory)
+
+	best_results_text_file = str(script_dir) + os.sep + 'NNScore_best_' + str(int(enter.num_to_filter)) + '_results.txt'
+	
+	#make temporary directory for NNScore results
+	temp_dir = str(script_dir / 'temp') + os.sep
+	if os.path.exists(temp_dir):
+		shutil.rmtree(temp_dir)
+	os.mkdir(temp_dir)
 
 	print("NNScore launch...")
 	for ligand_file in tqdm(glob.glob(enter.ligands_dir + "*.pdbqt")):
 		ligand_filename = Path(ligand_file).stem
-		#os.system(to_execute)
-		temp_out_file = open(temp_dir + ligand_filename + ".txt", 'w');
-		subprocess.call([sys.executable, nn2_script_file, "-receptor", str(enter.receptor_file), "-ligand", ligand_file, "-vina_executable", str(enter.vina_executable)], stdout=temp_out_file)
-		temp_out_file.close()
+		out_file = open(temp_dir + ligand_filename + ".txt", 'w');
+		subprocess.call([sys.executable, nn2_script_file, "-receptor", str(enter.receptor_file), "-ligand", ligand_file, "-vina_executable", str(enter.vina_executable)], stdout=out_file)
+		out_file.close()
 
-	print("Writing results...")
+	print("Collecting results...")
 	results_list = []
 	for ligand_output in tqdm(glob.glob(temp_dir + "*.txt")):
 		with open(ligand_output,'r') as f:
@@ -115,23 +129,38 @@ def main():
 					"Unit": str(tmp[4][-2:]) 	  
 					}
 					results_list.append(ligand_dock_info)
-	
-	for file in glob.glob(temp_dir + "*.*"):
-		os.remove(file)
-	os.rmdir(temp_dir)
-        
+
+	#remove temporary directory of NNScore results
+	shutil.rmtree(temp_dir)
+    
+	print("Sorting results by Kd...")
 	results_df = pd.DataFrame(results_list)
 	#sorting dataframe with results by score
 	results_df.sort_values(by=["NNScore"], ascending=False, inplace=True)
 
-        #placing columns in desirable order
+    #placing columns in desirable order
 	results_df = results_df[['Filename of ligand', 'NNScore', '\u00B1Deviation', 'Kd', 'Unit']]
 	
 	# create file with results
 	content = tabulate(results_df.values.tolist(), list(results_df.columns), tablefmt="plain")
 	open(results_text_file, "w").write(content)
-	print(content)
 	
+	print("Creating directory with top-" + str(int(enter.num_to_filter)) + " results by Kd...")
+	results_df_best = results_df.head(int(enter.num_to_filter))
+	
+	chosen_results = results_df_best['Filename of ligand'].tolist()
+	for ligand_file in tqdm(glob.glob(enter.ligands_dir + "*.pdbqt")):
+		ligand_filename = Path(ligand_file).stem
+		if ligand_filename in chosen_results:
+			ligand_file_from = ligand_file
+			ligand_file_to = best_output_directory + ligand_filename + '.pdbqt'
+			shutil.copy(str(ligand_file_from), str(ligand_file_to))
+	
+	# create file with best results
+	content2 = tabulate(results_df_best.values.tolist(), list(results_df_best.columns), tablefmt="plain")
+	open(best_results_text_file, "w").write(content2)
+
+	print("Best " + str(int(enter.num_to_filter)) + " results directory: " + best_output_directory)
 	print("Program terminated successfully! ^_^")
 
 if __name__=="__main__": main()
