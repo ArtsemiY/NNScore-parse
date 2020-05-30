@@ -35,16 +35,24 @@ pip install tabulate pandas numpy Path tqdm subprocess.run
 <path_to_python> NNScore2_parser.py --receptor_file <path_to_receptor> --ligands_dir <path_to_directory_with_ligands> --vina_executable <path_to_vina> --num_to_filter <num_to_filter>
 
 Required parameters:
+
 <path_to_python> - cmd-variable or path to python executable (.exe)
+
 <path_to_directory_with_ligands> - path to separate directory containing ONLY ligands of interest
+
 <path_to_receptor> - name of file in current directory or path to file with receptor (.pdbqt)
+
 <path_to_vina> - cmd-variable or path to vina executable (.exe)
+
 <num_to_filter> - integer number of top-ligans according to redicted Kd, which will be placed into separate directory
+
 
 If vina(.exe), receptor(.pdbqt) and ligands (directory) placed in same directory as script NNScore2_parser.py, here is examples of such launching:
 
 Example for Windows:
+
 python NNScore2_parser.py --receptor_file receptor.pdbqt --ligands_dir .\ligands\ --vina_executable vina.exe --num_to_filter 100
 
 Example for Linux:
+
 python NNScore2_parser.py --receptor_file receptor.pdbqt --ligands_dir ./ligands/ --vina_executable vina --num_to_filter 100
